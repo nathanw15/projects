@@ -14,6 +14,7 @@
 
 #define SAMPLE_RATE 44100
 #define BLOCK_SIZE (2048)
+#define MAX_DELAY 44100
 
 using namespace al;
 using namespace std;
@@ -398,7 +399,8 @@ public:
         searchpaths.addAppPaths();
         searchpaths.addRelativePath("../sounds");
 
-        samplePlayers.push_back(new gam::SamplePlayer<>(searchpaths.find("lowBoys.wav").filepath().c_str()));
+//        samplePlayers.push_back(new gam::SamplePlayer<>(searchpaths.find("lowBoys.wav").filepath().c_str()));
+        samplePlayers.push_back(new gam::SamplePlayer<>(searchpaths.find("count.wav").filepath().c_str()));
         samplePlayers.push_back(new gam::SamplePlayer<>(searchpaths.find("devSamples.wav").filepath().c_str()));
 
         linearRamp.set(-2.0,2.0,linearRamp.rampDuration.get());
@@ -408,7 +410,7 @@ public:
        // speakers.push_back(SpeakerV(0,90.0 - (10.0*0),0.0,0,5.0,1.0,0));
 
         for (int i = 0; i < 20; i++){
-            int delay = rand() % static_cast<int>(44100 + 1);
+            int delay = rand() % static_cast<int>(MAX_DELAY + 1);
             speakers.push_back(SpeakerV(i,90.0 - (10.0*i),0.0,0,5.0,0,delay));
         }
 
