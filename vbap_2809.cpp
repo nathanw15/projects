@@ -56,14 +56,12 @@ struct Ramp {
     Ramp(){
         rampBundle  << triggerRamp << rampStartAzimuth << rampEndAzimuth << rampDuration;
 
-        triggerRamp.registerChangeCallback([&](float val){
-            if(val == 1.f){ // is this correct way to check?
-                //cout << "Ramp triggered" << endl;
-                trigger = true;
-//                gam::SamplePlayer<> *player = samplePlayers[soundFileIdx];
-//                player->reset();
-            }
-        });
+//        triggerRamp.registerChangeCallback([&](float val){
+//            if(val == 1.f){ // is this correct way to check?
+//                //cout << "Ramp triggered" << endl;
+//                trigger = true;
+//            }
+//        });
     }
 
     void set(float startAzi, float endAzi, float dur){
@@ -146,6 +144,13 @@ public:
             samplePlayer.load(searchpaths.find(files[val]).filepath().c_str());
         });
 
+        sourceRamp.triggerRamp.registerChangeCallback([&](float val){
+            if(val == 1.f){ // is this correct way to check?
+                //cout << "Ramp triggered" << endl;
+                sourceRamp.trigger = true;
+                samplePlayer.reset();
+            }
+        });
         vsBundle << enabled << sourceGain << aziInRad << positionUpdate << fileIdx << sourceRamp.triggerRamp << sourceRamp.rampStartAzimuth << sourceRamp.rampEndAzimuth << sourceRamp.rampDuration << angularFreq;
     }
 
@@ -295,8 +300,6 @@ public:
 //    SearchPaths searchpaths;
     ControlGUI parameterGUI;
 
-    //vector<VirtualSource> sources;
-
     MyApp()
     {
 
@@ -304,7 +307,6 @@ public:
         searchpaths.addRelativePath("../sounds");
 //        parameterGUI << soundOn << srcAzimuth << updatePanner << triggerRamp << rampStartAzimuth << rampEndAzimuth << rampDuration << sourceSound << soundFileIdx << sampleWise << useDelay << masterGain << useRamp;
         parameterGUI << soundOn << srcAzimuth << updatePanner << sourceSound << soundFileIdx << sampleWise << useDelay << masterGain;
-
 
         for(int i = 0; i < 2; i++){
             auto *newVS = new VirtualSource; // This memory is not freed and it should be...
@@ -315,15 +317,10 @@ public:
 
        // presets.registerPresetCallback(presetCB);
 
-        //sources.push_back(new VirtualSource);
-
-        //        parameterServer() << srcAzimuth << updatePanner << rampStartAzimuth << rampEndAzimuth << rampDuration << sourceSound << soundFileIdx << sampleWise;
-
        // paramServer << srcAzimuth << updatePanner << triggerRamp << rampStartAzimuth << rampEndAzimuth << rampDuration << sourceSound << soundFileIdx << sampleWise << useDelay << masterGain << useRamp << soundOn;
         soundOn.setHint("latch", 1.f);
         sampleWise.setHint("latch", 1.f);
         useDelay.setHint("latch",1.f);
-
         sourceSound.setHint("intcombo",1.f);
         soundFileIdx.setHint("intcombo",1.f);
 
@@ -332,7 +329,6 @@ public:
                 cout << "panner Updated" << endl;
                 initPanner();
             }
-
         });
     }
 
@@ -462,7 +458,6 @@ public:
         }
     }
 
-
     void renderBuffer(AudioIOData &io,const float &srcAzi, const float *buffer){
         int speakerChan1, speakerChan2;
         Vec3d gains = calcGains(io,srcAzi, speakerChan1, speakerChan2);
@@ -554,7 +549,7 @@ public:
     virtual void onSound(AudioIOData &io) override {
 
         static unsigned int t = 0;
-        double sec;
+        //double sec;
         float srcBuffer[BLOCK_SIZE];
 
         float mGain = masterGain.get();
@@ -649,21 +644,20 @@ public:
             g.draw(mSpeakerMesh);
             g.popMatrix();
 
-
-        // Draw line
-        Mesh lineMesh;
-        lineMesh.vertex(0.0,0.0, 0.0);
-        lineMesh.vertex(pos.x,0.0, pos.z);
-        lineMesh.vertex(pos);
-        lineMesh.index(0);
-        lineMesh.index(1);
-        lineMesh.index(1);
-        lineMesh.index(2);
-        lineMesh.index(2);
-        lineMesh.index(0);
-        lineMesh.primitive(Mesh::LINES);
-        g.color(1);
-        g.draw(lineMesh);
+            // Draw line
+            Mesh lineMesh;
+            lineMesh.vertex(0.0,0.0, 0.0);
+            lineMesh.vertex(pos.x,0.0, pos.z);
+            lineMesh.vertex(pos);
+            lineMesh.index(0);
+            lineMesh.index(1);
+            lineMesh.index(1);
+            lineMesh.index(2);
+            lineMesh.index(2);
+            lineMesh.index(0);
+            lineMesh.primitive(Mesh::LINES);
+            g.color(1);
+            g.draw(lineMesh);
         }
 
         //Draw the speakers
@@ -740,7 +734,6 @@ public:
 int main(){
     MyApp app;
     AudioDevice::printAll();
-
 
      //audioRate audioBlockSize audioOutputs audioInputs device
 
