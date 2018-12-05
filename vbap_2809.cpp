@@ -16,6 +16,8 @@
 #define BLOCK_SIZE (2048)
 #define MAX_DELAY 44100
 
+#define NUM_SOURCES 3
+
 using namespace al;
 using namespace std;
 
@@ -23,7 +25,7 @@ ParameterServer paramServer("127.0.0.1",8080);
 Parameter srcAzimuth("srcAzimuth","",-0.5,"",-1.0*M_PI,M_PI);
 ParameterBool updatePanner("updatePanner","",0.0);
 
-float radius = 5.0;
+float radius = 10.0;
 
 Parameter sourceSound("sourceSound","",0.0,"",0.0,3.0);
 Parameter soundFileIdx("soundFileIdx","",0.0,"",0.0,3.0);
@@ -38,7 +40,11 @@ PresetHandler presets("data/presets");
 
 SearchPaths searchpaths;
 
-vector<string> files{"count.wav","lowBoys.wav"};
+vector<string> files{"count.wav","lowBoys.wav","midiPiano.wav"};
+
+Parameter maxDelay("maxDelay","",0.0,"",0.0,1.0);
+
+ParameterBool resetSamples("resetSamples","",0.0);
 
 struct Ramp {
 
@@ -110,13 +116,14 @@ public:
     ParameterBool enabled{"enabled","",0.0};
     Parameter positionUpdate{"positionUpdate","",0.0,"",0.0,3.0};
     Parameter sourceGain{"sourceGain","",0.5,"",0.0,1.0};
-    Parameter aziInRad{"aziInRad","",1.459,"",-1.0*M_PI,M_PI};
+    Parameter aziInRad{"aziInRad","",2.9,"",-1.0*M_PI,M_PI};
     gam::SamplePlayer<> samplePlayer;
     //int sound = 0;
-    Parameter fileIdx{"fileIdx","",0.0,"",0.0,3.0};
+    Parameter fileIdx{"fileIdx","",2.0,"",0.0,3.0};
     ParameterBundle vsBundle{"vsBundle"};
     float buffer[BLOCK_SIZE];
     Parameter angularFreq {"angularFreq","",1.f,"",-15.f,15.f};
+    Parameter samplePlayerRate {"samplePlayerRate","",1.f,"",1.f,1.5f};
 
     Ramp sourceRamp;
 
@@ -124,11 +131,15 @@ public:
 
     VirtualSource(){
 
-        samplePlayer.load(searchpaths.find(files[0]).filepath().c_str());
+        samplePlayer.load(searchpaths.find(files[fileIdx.get()]).filepath().c_str());
 
         enabled.setHint("latch", 1.f);
         fileIdx.setHint("intcombo",1.f);
         positionUpdate.setHint("intcombo",1.f);
+
+        //cout << vsBundle.bundleIndex() << endl;
+        samplePlayerRate.set(1.0 + (.005 * vsBundle.bundleIndex()));
+        samplePlayer.rate(samplePlayerRate.get());
 
         aziInRad.setProcessingCallback([&](float val){
             while(val > M_PI){
@@ -138,6 +149,10 @@ public:
                 val += M_2PI;
             }
             return val;
+        });
+
+        samplePlayerRate.registerChangeCallback([&](float val){
+           samplePlayer.rate(val);
         });
 
         fileIdx.registerChangeCallback([&](float val){
@@ -151,7 +166,7 @@ public:
                 samplePlayer.reset();
             }
         });
-        vsBundle << enabled << sourceGain << aziInRad << positionUpdate << fileIdx << sourceRamp.triggerRamp << sourceRamp.rampStartAzimuth << sourceRamp.rampEndAzimuth << sourceRamp.rampDuration << angularFreq;
+        vsBundle << enabled << sourceGain << aziInRad << positionUpdate << fileIdx << samplePlayerRate << sourceRamp.triggerRamp << sourceRamp.rampStartAzimuth << sourceRamp.rampEndAzimuth << sourceRamp.rampDuration << angularFreq;
     }
 
     void updatePosition(unsigned int sampleNumber){
@@ -212,7 +227,10 @@ public:
     SpeakerV(int chan, float az=0.f, float el=0.f, int gr=0, float rad=1.f, float ga=1.f, int del = 0){
         delay = del;
         readPos = 0;
-        writePos = delay;
+//        writePos = delay;
+        writePos = 0;
+
+        setDelay(maxDelay.get()*SAMPLE_RATE);
         bufferSize = 44100*2;//MAKE WORK WITH MAX DELAY
 
         buffer = calloc(bufferSize,sizeof(float));
@@ -241,6 +259,11 @@ public:
         paramServer.registerParameter(*enabled);
     }
 
+    void setDelay(int delayInSamps){
+        delay = rand() % static_cast<int>(delayInSamps + 1);
+       // cout<<delay << " " << readPos << " " << writePos <<  endl;
+    }
+
     float read(){
         if(readPos >= bufferSize){
             readPos = 0;
@@ -253,10 +276,18 @@ public:
 
     void write(float samp){
         if(writePos >= bufferSize){
-            writePos = 0;
+//            writePos = 0;
+            writePos -= bufferSize;
         }
+
+        int writeDelay = writePos + delay;
+        if(writeDelay >= bufferSize){
+            writeDelay -= bufferSize;
+        }
+
         float *b = (float*)buffer;
-        b[writePos] = samp;
+//        b[writePos] = samp;
+                b[writeDelay] = samp;
         writePos++;
     }
 };
@@ -306,18 +337,23 @@ public:
         searchpaths.addAppPaths();
         searchpaths.addRelativePath("../sounds");
 //        parameterGUI << soundOn << srcAzimuth << updatePanner << triggerRamp << rampStartAzimuth << rampEndAzimuth << rampDuration << sourceSound << soundFileIdx << sampleWise << useDelay << masterGain << useRamp;
-        parameterGUI << soundOn << srcAzimuth << updatePanner << sourceSound << soundFileIdx << sampleWise << useDelay << masterGain;
+        parameterGUI << soundOn << resetSamples << srcAzimuth << updatePanner << sourceSound << soundFileIdx << sampleWise << useDelay << masterGain << maxDelay;
 
-        for(int i = 0; i < 2; i++){
+        for(int i = 0; i < NUM_SOURCES; i++){
             auto *newVS = new VirtualSource; // This memory is not freed and it should be...
             sources.push_back(newVS);
             // Register its parameter bundle with the ControlGUI
             parameterGUI << newVS->vsBundle;
+            paramServer << newVS->vsBundle;
         }
+
+
 
        // presets.registerPresetCallback(presetCB);
 
        // paramServer << srcAzimuth << updatePanner << triggerRamp << rampStartAzimuth << rampEndAzimuth << rampDuration << sourceSound << soundFileIdx << sampleWise << useDelay << masterGain << useRamp << soundOn;
+
+        //paramServer.print();
         soundOn.setHint("latch", 1.f);
         sampleWise.setHint("latch", 1.f);
         useDelay.setHint("latch",1.f);
@@ -328,6 +364,23 @@ public:
             if(val == 1.f){ // is this correct way to check?
                 cout << "panner Updated" << endl;
                 initPanner();
+            }
+        });
+
+        maxDelay.registerChangeCallback([&](float val){
+            //cout << maxDelay.get() << " " << val << endl;
+            int delSamps = val*SAMPLE_RATE;
+            for(SpeakerV &v:speakers){
+               v.setDelay(delSamps);
+            }
+
+        });
+
+        resetSamples.registerChangeCallback([&](float val){
+            if(val == 1.f){ // is this correct way to check?
+                for(VirtualSource *v: sources){
+                    v->samplePlayer.reset();
+                }
             }
         });
     }
@@ -496,12 +549,12 @@ public:
         float ang;
         for (int i = 0; i < 32; i++){
             int delay = rand() % static_cast<int>(MAX_DELAY + 1);
-            ang = 90.0 - (5.0*i);
+            ang = 170.0 - (11.0*i);
             speakers.push_back(SpeakerV(i,ang,0.0,0,5.0,0,delay));
         }
 
         //-1 for phantom channels (can remove isPhantom and just check -1)
-        SpeakerV s(-1, 100,0.0,0,5.0,0,0);
+        SpeakerV s(-1, 175,0.0,0,5.0,0,0);
         s.isPhantom = true;
         speakers.push_back(s);
 
@@ -634,6 +687,17 @@ public:
         g.blending(true);
         g.blendModeAdd();
 
+        g.pushMatrix();
+        Mesh lineMesh;
+        lineMesh.vertex(0.0,0.0, 10.0);
+        lineMesh.vertex(0.0,0.0, -10.0);
+        lineMesh.index(0);
+        lineMesh.index(1);
+        lineMesh.primitive(Mesh::LINES);
+        g.color(1);
+        g.draw(lineMesh);
+        g.popMatrix();
+
         //Draw the sources
         for(VirtualSource *v: sources){
             Vec3d pos = ambiSphericalToOGLCart(v->aziInRad,radius);
@@ -672,7 +736,9 @@ public:
             g.scale(0.04 + peak * 6);
             g.polygonLine();
 
-            if(devChan == 0){
+            if(speakers[i].isPhantom){
+                g.color(0.0,1.0,0.0);
+            }else if(devChan == 0){
                 g.color(1.0,0.0,0.0);
             }else if(!speakers[i].enabled->get()){
                 g.color(0.05,0.05,0.05);
@@ -686,7 +752,6 @@ public:
     }
 
     virtual void onKeyDown(const Keyboard &k) override {
-        cout << k.key() << endl;
       if (k.alt()) {
         switch (k.key()) {
         case '1':
