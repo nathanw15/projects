@@ -16,7 +16,7 @@
 #define BLOCK_SIZE (2048)
 #define MAX_DELAY 44100
 
-#define NUM_SOURCES 3
+#define NUM_SOURCES 5
 
 using namespace al;
 using namespace std;
@@ -142,7 +142,7 @@ public:
         positionUpdate.setHint("intcombo",1.f);
 
         //cout << vsBundle.bundleIndex() << endl;
-        samplePlayerRate.set(1.0 + (.005 * vsBundle.bundleIndex()));
+        samplePlayerRate.set(1.0 + (.002 * vsBundle.bundleIndex()));
         samplePlayer.rate(samplePlayerRate.get());
 
         aziInRad.setProcessingCallback([&](float val){
