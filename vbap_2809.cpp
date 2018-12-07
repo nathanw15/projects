@@ -27,8 +27,8 @@ ParameterBool updatePanner("updatePanner","",0.0);
 
 float radius = 10.0;
 
-Parameter sourceSound("sourceSound","",0.0,"",0.0,3.0);
-Parameter soundFileIdx("soundFileIdx","",0.0,"",0.0,3.0);
+//Parameter sourceSound("sourceSound","",0.0,"",0.0,3.0);
+//Parameter soundFileIdx("soundFileIdx","",0.0,"",0.0,3.0);
 
 ParameterBool sampleWise("sampleWise","",0.0);
 ParameterBool useDelay("useDelay","", 0.0);
@@ -45,6 +45,10 @@ vector<string> files{"count.wav","lowBoys.wav","midiPiano.wav"};
 Parameter maxDelay("maxDelay","",0.0,"",0.0,1.0);
 
 ParameterBool resetSamples("resetSamples","",0.0);
+
+Parameter setAllPosUpdate("setAllPosUpdate","",0.0,"",0.0,3.0);
+Parameter setAllSoundFileIdx("setAllSoundFileIdx","",0.0,"",0.0,3.0);
+ParameterBool setAllEnabled("setAllEnabled","",0.0);
 
 struct Ramp {
 
@@ -337,7 +341,9 @@ public:
         searchpaths.addAppPaths();
         searchpaths.addRelativePath("../sounds");
 //        parameterGUI << soundOn << srcAzimuth << updatePanner << triggerRamp << rampStartAzimuth << rampEndAzimuth << rampDuration << sourceSound << soundFileIdx << sampleWise << useDelay << masterGain << useRamp;
-        parameterGUI << soundOn << resetSamples << srcAzimuth << updatePanner << sourceSound << soundFileIdx << sampleWise << useDelay << masterGain << maxDelay;
+//        parameterGUI << soundOn << resetSamples << srcAzimuth << updatePanner << sourceSound << soundFileIdx << sampleWise << useDelay << masterGain << maxDelay << setAllEnabled << setAllPosUpdate << setAllSoundFileIdx;
+
+        parameterGUI << soundOn << resetSamples << updatePanner << sampleWise << useDelay << masterGain << maxDelay << setAllEnabled << setAllPosUpdate << setAllSoundFileIdx;
 
         for(int i = 0; i < NUM_SOURCES; i++){
             auto *newVS = new VirtualSource; // This memory is not freed and it should be...
@@ -357,8 +363,30 @@ public:
         soundOn.setHint("latch", 1.f);
         sampleWise.setHint("latch", 1.f);
         useDelay.setHint("latch",1.f);
-        sourceSound.setHint("intcombo",1.f);
-        soundFileIdx.setHint("intcombo",1.f);
+        //sourceSound.setHint("intcombo",1.f);
+        //soundFileIdx.setHint("intcombo",1.f);
+
+        setAllEnabled.setHint("latch",1.f);
+        setAllPosUpdate.setHint("intcombo",1.f);
+        setAllSoundFileIdx.setHint("intcombo",1.f);
+
+        setAllEnabled.registerChangeCallback([&](float val){
+            for(VirtualSource *v: sources){
+                v->enabled.set(val);
+            }
+        });
+
+        setAllPosUpdate.registerChangeCallback([&](float val){
+            for(VirtualSource *v: sources){
+                v->positionUpdate.set(val);
+            }
+        });
+
+        setAllSoundFileIdx.registerChangeCallback([&](float val){
+            for(VirtualSource *v: sources){
+                v->fileIdx.set(val);
+            }
+        });
 
         updatePanner.registerChangeCallback([&](float val){
             if(val == 1.f){ // is this correct way to check?
@@ -421,7 +449,7 @@ public:
 
         Vec3f ambiCartSrcPos = ambiSphericalToOGLCart(srcAzi,radius);
         openGLCartToAmbiCart(ambiCartSrcPos);
-        std::sort(enabledSpeakers.begin(),enabledSpeakers.end(),&speakerSort);
+        //std::sort(enabledSpeakers.begin(),enabledSpeakers.end(),&speakerSort);
         Vec3d gains(0.,0.,0.);
         float speakSrcAngle,linearDistance;
 
@@ -610,17 +638,17 @@ public:
 
         if(soundOn.get() > 0.5){
             while (io()) {
-                int i = io.frame();
-                if(sourceSound.get() == 0){
-                    float env = (22050 - (t % 22050))/22050.0;
-                    srcBuffer[i] = mGain * rnd::uniform() * env;
-                } else if(sourceSound.get() ==1){
-                    gam::SamplePlayer<> *player = samplePlayers[soundFileIdx];
-                    if(player->done()){
-                        player->reset();
-                    }
-                    srcBuffer[i] = mGain * player->operator ()();
-                }
+                //int i = io.frame();
+//                if(sourceSound.get() == 0){
+//                    float env = (22050 - (t % 22050))/22050.0;
+//                    srcBuffer[i] = mGain * rnd::uniform() * env;
+//                } else if(sourceSound.get() ==1){
+//                    gam::SamplePlayer<> *player = samplePlayers[soundFileIdx];
+//                    if(player->done()){
+//                        player->reset();
+//                    }
+//                    srcBuffer[i] = mGain * player->operator ()();
+//                }
                 ++t;
 
                 if(sampleWise.get() == 1.f){
